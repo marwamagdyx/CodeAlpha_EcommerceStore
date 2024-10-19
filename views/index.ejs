@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/styles.css">
+    <title>Basic E-commerce Store</title>
+</head>
+<body>
+    <header>
+        <h1>E-commerce Store</h1>
+        <div id="cart">
+            <a href="/cart">Shopping Cart</a> (<span id="cart-count">0</span>)
+        </div>
+    </header>
+
+    <!-- Product Categories Filter -->
+    <section class="category-filter">
+        <select id="category-filter" onchange="filterByCategory(this.value)">
+            <option value="" disabled selected>Select Category</option>
+            <option value="all">All Categories</option>
+            <option value="Electronics">Electronics</option>
+            <option value="Clothing">Clothing</option>
+            <option value="Furniture">Furniture</option>
+            <option value="Fitness">Fitness</option>
+            <option value="Accessories">Accessories</option>
+            <option value="Footwear">Footwear</option>
+            <option value="Bags">Bags</option>
+        </select>
+    </section>
+
+    <main>
+        <section class="products" id="product-list">
+            <!-- Render products dynamically from server -->
+            <% if (products && products.length > 0) { %>
+                <% products.forEach(product => { %>
+                    <div class="product">
+                        <img src="<%= product.imageUrl %>" alt="<%= product.name %>" onclick="previewProduct('<%= product._id %>')">
+                        <h2><%= product.name %></h2>
+                        <p><%= product.description %></p>
+                        <p>Price: $<%= product.price %></p>
+                        <!-- Quantity selector before adding to cart -->
+                        <input type="number" id="quantity-<%= product._id %>" value="1" min="1">
+                        <button onclick="addToCart('<%= product._id %>', document.getElementById('quantity-<%= product._id %>').value)">Add to Cart</button>
+                    </div>
+                <% }); %>
+            <% } else { %>
+                <p>No products available.</p>
+            <% } %>
+        </section>
+        <div id="product-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <img id="modal-image" src="" alt="Product Image">
+                <h2 id="modal-name"></h2>
+                <p id="modal-description"></p>
+                <p>Price: $<span id="modal-price"></span></p>
+                <label for="modal-quantity">Quantity: </label>
+                <input type="number" id="modal-quantity" value="1" min="1">
+                <button onclick="addToCartFromModal()">Add to Cart</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Parse the products passed from the server as a JS object
+        const products = <%-JSON.stringify(products)%>; // Corrected line
+
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+        // Update cart count on page load
+        document.getElementById('cart-count').innerText = cart.length;
+
+        // Function to add products to the cart
+        function addToCart(productId, quantity = 1) {
+            const cartItem = cart.find(item => item.productId === productId);
+            if (cartItem) {
+                cartItem.quantity += parseInt(quantity);
+            } else {
+                cart.push({ productId, quantity: parseInt(quantity) });
+            }
+            localStorage.setItem('cart', JSON.stringify(cart));
+            document.getElementById('cart-count').innerText = cart.length;
+            alert('Product added to cart!');
+        }
+
+        // Function to preview a product in a modal
+        function previewProduct(productId) {
+            const product = products.find(p => p._id === productId);
+            document.getElementById('modal-image').src = product.imageUrl;
+            document.getElementById('modal-name').innerText = product.name;
+            document.getElementById('modal-description').innerText = product.description;
+            document.getElementById('modal-price').innerText = product.price;
+            document.getElementById('product-modal').style.display = 'block';
+        }
+
+        // Close the product modal
+        function closeModal() {
+            document.getElementById('product-modal').style.display = 'none';
+        }
+
+        // Add product to cart from modal
+        function addToCartFromModal() {
+            const productId = products.find(p => p.name === document.getElementById('modal-name').innerText)._id;
+            const quantity = document.getElementById('modal-quantity').value;
+            addToCart(productId, quantity);
+            closeModal();
+        }
+
+        // Function to filter products by category
+        function filterByCategory(category) {
+            const filteredProducts = category === 'all' ? products : products.filter(product => product.category === category);
+            document.getElementById('product-list').innerHTML = filteredProducts.map(product => `
+                <div class="product">
+                    <img src="${product.imageUrl}" alt="${product.name}" onclick="previewProduct('${product._id}')">
+                    <h2>${product.name}</h2>
+                    <p>${product.description}</p>
+                    <p>Price: $${product.price}</p>
+                    <input type="number" id="quantity-${product._id}" value="1" min="1">
+                    <button onclick="addToCart('${product._id}', document.getElementById('quantity-${product._id}').value)">Add to Cart</button>
+                </div>
+            `).join('');
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+    background-color: #343a40;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin: 0;
+}
+
+#cart {
+    position: absolute;
+    right: 20px;
+    top: 30px;
+}
+
+#cart a {
+    color: #28a745;
+    padding-top: 10px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+#cart a:hover {
+    color: #fff;
+}
+  .products {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            margin: 20px;
+        }
+
+.product {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 20px;
+    width: 220px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.product:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.product h2 {
+    font-size: 1.2rem;
+    margin: 10px 0;
+    font-weight: 600;
+}
+
+.product p {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.product button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.product button:hover {
+    background-color: #218838;
+}
+.product img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.product img:hover {
+    transform: scale(1.05);
+}
+.modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 600px;
+    height: auto;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 20px;
+    transition: opacity 0.3s ease;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    position: relative;
+    width: 100%;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content img {
+    width: 100%;
+    height: auto;
+    max-width: 350px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #333;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: #f00;
+}
+        .product input[type="number"] {
+    width: 50px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+.modal-content input[type="number"] {
+    width: 50px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+.modal-content button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.modal-content button:hover {
+    background-color: #218838;
+}
+
+
+.category-filter {
+    margin: 20px;
+    text-align: left;
+}
+
+/* Styling the dropdown */
+#category-filter {
+    width: 250px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+    cursor: pointer;
+    outline: none;
+}
+
+/* Add a shadow effect on hover */
+#category-filter:hover {
+    background-color: #fff;
+    border-color: #28a745;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.1);
+}
+
+/* Style the options in the dropdown */
+#category-filter option {
+    padding: 10px;
+    font-size: 14px;
+    background-color: white;
+}
+
+/* Add focus style for accessibility */
+#category-filter:focus {
+    outline: none;
+    border-color: #28a745;
+    box-shadow: 0 0 5px #28a745(0, 123, 255, 0.5);
+}
+    </style>
+</body>
+</html>

@@ -1,0 +1,429 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/styles.css">
+    <title>Your Shopping Cart</title>
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a href="/" id="continue-shopping">Continue Shopping</a>
+            <h1>Your Shopping Cart</h1>
+        </div>
+    </header>
+
+    <main>
+        <section id="cart-items">
+            <!-- Cart items will be dynamically populated here -->
+        </section>
+
+        <div id="cart-summary">
+            <p>Total: $<span id="cart-total">0.00</span></p>
+            <button id="checkout-button">Checkout</button>
+        </div>
+
+        <!-- Shipping Information Form -->
+        <section id="shipping-info" style="display: none;">
+            <h2>Shipping Information</h2>
+            <form id="shipping-form">
+                <div class="form-group">
+                    <label for="shipping-name">Full Name:</label>
+                    <input type="text" id="shipping-name" name="shipping-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="shipping-address">Address:</label>
+                    <textarea id="shipping-address" name="shipping-address" rows="3" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="shipping-city">City:</label>
+                    <input type="text" id="shipping-city" name="shipping-city" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="shipping-postcode">Postcode:</label>
+                    <input type="text" id="shipping-postcode" name="shipping-postcode" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="shipping-country">Country:</label>
+                    <input type="text" id="shipping-country" name="shipping-country" required>
+                </div>
+
+                <button type="submit" class="submit-button">Place Order</button>
+            </form>
+        </section>
+    </main>
+
+    <script>
+        // Load the cart from localStorage
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+        const cartItemsContainer = document.getElementById('cart-items');
+        const cartTotalElement = document.getElementById('cart-total');
+
+        // Function to calculate total price
+        function calculateTotal(products) {
+            return products.reduce((total, product) => total + (product.price * product.quantity), 0).toFixed(2);
+        }
+
+        // Function to render cart items
+        function renderCartItems(products) {
+            cartItemsContainer.innerHTML = ''; // Clear previous items
+
+            products.forEach(product => {
+                const itemDiv = document.createElement('div');
+                itemDiv.classList.add('cart-item');
+                itemDiv.innerHTML = `
+                    <h3>${product.name}</h3>
+                    <p>Price: $${product.price}</p>
+                    <input type="number" min="1" value="${product.quantity}" id="quantity-${product._id}" onchange="updateQuantity('${product._id}', this.value)">
+                    <button onclick="removeFromCart('${product._id}')">Remove</button>
+                `;
+                cartItemsContainer.appendChild(itemDiv);
+            });
+
+            // Calculate and update the total price
+            cartTotalElement.innerText = calculateTotal(products);
+        }
+
+        // Function to fetch and display cart items
+        if (cart.length > 0) {
+            fetch('/api/cart-items', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ids: cart.map(item => item.productId) })  // Send cart product IDs to the server
+            })
+            .then(res => res.json())
+            .then(products => {
+                // Merge quantity from cart with fetched product details
+                const detailedProducts = products.map(product => {
+                    const cartItem = cart.find(item => item.productId === product._id);
+                    return { ...product, quantity: cartItem.quantity };
+                });
+
+                renderCartItems(detailedProducts);
+            })
+            .catch(error => {
+                console.error('Error fetching cart items:', error);
+                cartItemsContainer.innerHTML = '<p>Error loading cart items.</p>';
+            });
+        } else {
+            cartItemsContainer.innerHTML = '<p>Your cart is empty.</p>';
+        }
+
+        // Function to update product quantity
+        function updateQuantity(productId, newQuantity) {
+            const productIndex = cart.findIndex(item => item.productId === productId);
+            if (productIndex !== -1) {
+                cart[productIndex].quantity = parseInt(newQuantity);
+                localStorage.setItem('cart', JSON.stringify(cart));
+                // Re-fetch product details and update the cart
+                fetch('/api/cart-items', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: cart.map(item => item.productId) })
+                })
+                .then(res => res.json())
+                .then(products => {
+                    const detailedProducts = products.map(product => {
+                        const cartItem = cart.find(item => item.productId === product._id);
+                        return { ...product, quantity: cartItem.quantity };
+                    });
+                    renderCartItems(detailedProducts);  // Re-render cart items with updated quantity
+                });
+            }
+        }
+
+        // Function to remove product from the cart
+        function removeFromCart(productId) {
+            cart = cart.filter(item => item.productId !== productId);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            if (cart.length === 0) {
+                cartItemsContainer.innerHTML = '<p>Your cart is empty.</p>';
+                cartTotalElement.innerText = '0.00';
+            } else {
+                // Re-fetch product details and update the cart
+                fetch('/api/cart-items', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: cart.map(item => item.productId) })
+                })
+                .then(res => res.json())
+                .then(products => {
+                    const detailedProducts = products.map(product => {
+                        const cartItem = cart.find(item => item.productId === product._id);
+                        return { ...product, quantity: cartItem.quantity };
+                    });
+                    renderCartItems(detailedProducts);  // Re-render cart items with updated list
+                });
+            }
+        }
+
+        // Handle checkout
+        document.getElementById('checkout-button').addEventListener('click', () => {
+            
+            const userId = 'exampleUserId';  // Replace with actual user ID from your authentication system
+            document.getElementById('cart-summary').style.display = 'none';
+    document.getElementById('cart-items').style.display = 'none';
+    document.getElementById('shipping-info').style.display = 'block';
+            const formattedProducts = cart.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity, 
+                price: item.price,
+            }));
+
+            const checkoutData = { userId, products: formattedProducts }; // Prepare the payload
+
+            fetch('/checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(checkoutData)  // Send user ID and formatted products to the server
+            })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(errorData => {
+                        throw new Error(errorData.message);
+                    });
+                }
+                return res.json();
+            })
+            .then(data => {
+                alert(data.message);  // Show success message
+               
+            })
+            .catch(error => {
+                console.error('Error during checkout:', error);
+                alert('Error during checkout, please try again.');
+            });
+        });
+        document.getElementById('shipping-form').addEventListener('submit', (e) => {
+    e.preventDefault();  // Prevent the form from submitting the traditional way
+
+    // Get shipping information from the form
+    const shippingInfo = {
+        name: document.getElementById('shipping-name').value,
+        address: document.getElementById('shipping-address').value,
+        city: document.getElementById('shipping-city').value,
+        postcode: document.getElementById('shipping-postcode').value,
+        country: document.getElementById('shipping-country').value
+    };
+    const formattedShippingAddress = `${shippingInfo.name}, ${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.postcode}, ${shippingInfo.country}`;
+
+    const formattedProducts = cart.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+    }));
+
+    const orderData = {
+        items: formattedProducts,  // Use 'items' as the key
+        shippingAddress: formattedShippingAddress ,
+         // Directly include shipping info
+    };
+
+    // Send the order to the server
+    fetch('/place-order', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)  // Send order data to the server
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.text().then(text => {
+                throw new Error(text);  // Show the HTML response if error occurs
+            });
+        }
+        return res.json();
+    })
+    .then(data => {
+        alert(data.message);  // Show success message
+        localStorage.removeItem('cart');  // Clear local storage cart
+        window.location.href = '/';  // Redirect to homepage or order confirmation
+    })
+    .catch(error => {
+        console.error('Error placing order:', error);
+        alert('Error placing order, please try again. ' + error.message);
+    });
+});
+    </script>
+
+    <!-- Add basic CSS styles -->
+    <style>
+       body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f8f9fa;
+}
+
+header {
+    background-color: #343a40;
+    color: white;
+    display: flex;
+    justify-content: center; /* Centers the h1 horizontally */
+    align-items: center; /* Centers both items vertically */
+    position: relative;
+    padding: 30px;
+}
+
+.header-container {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    position: relative;
+    align-items: center;
+}
+
+#continue-shopping {
+    color: #28a745;
+    text-decoration: none;
+    font-weight: bold;
+    position: absolute;
+    left: 20px; /* Adjust as needed */
+}
+
+header h1 {
+    font-size: 2rem;
+    margin: 0;
+}
+main {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    transition: box-shadow 0.3s ease;
+}
+
+.cart-item:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.cart-item h3 {
+    font-size: 1.2rem;
+    margin: 0 0 10px 0;
+}
+
+.cart-item p {
+    margin: 0;
+    color: #6c757d;
+}
+
+.cart-item input[type="number"] {
+    width: 50px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.cart-item button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.cart-item button:hover {
+    background-color: #c82333;
+}
+
+#cart-summary {
+    text-align: right;
+    margin-top: 20px;
+    font-size: 1.2rem;
+    border-top: 2px solid #ddd;
+    padding-top: 10px;
+}
+
+#cart-summary p {
+    margin: 5px 0;
+}
+
+#checkout-button {
+    padding: 15px 25px;
+    font-size: 1.2rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#checkout-button:hover {
+    background-color: #218838;
+}
+
+#cart-total {
+    font-weight: bold;
+    color: #28a745;
+}
+
+#shipping-info {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+/* Form group styles */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Button styles */
+.submit-button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.submit-button:hover {
+    background-color: #45a049;
+}
+    </style>
+</body>
+</html>
